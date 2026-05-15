@@ -6,9 +6,12 @@ use App\Models\Koleksi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;    // ← untuk panggil API AI
 
 class KoleksiController extends Controller
 {
+    
+
     public function index()
     {
         // Ambil semua koleksi milik user yang sedang login
@@ -126,6 +129,79 @@ class KoleksiController extends Controller
         // Hapus data dari database
         $koleksi->delete();
 
-        return redirect()->route('koleksi.index') ->with('success', 'Koleksi berhasil dihapus!');
+        return redirect()->route('koleksi.index')
+                         ->with('success', 'Koleksi berhasil dihapus!');
+    }
+
+    // Laravel AI Integration
+    public function aiRekomendasi()
+    {
+        // Ambil semua koleksi milik user yang sedang login
+        $koleksis = Koleksi::where('user_id', Auth::id())->get();
+        // ↑ kita butuh data koleksi untuk dikirim ke AI
+
+        // Siapkan ringkasan koleksi sebagai teks untuk AI
+        // Format: "nama (kategori) - rating X/5 - status"
+        $daftarKoleksi = $koleksis->map(function ($item) {
+            return "- {$item->nama} ({$item->kategori}) | Rating: {$item->rating}/5 | Status: {$item->status}";
+        })->implode("\n");
+        // ↑ implode() = gabungkan semua baris jadi satu string
+
+        // Kalau user belum punya koleksi, tampilkan pesan kosong
+        if ($koleksis->isEmpty()) {
+            return view('koleksi.ai', [
+                'rekomendasi' => null,
+                'koleksis'    => $koleksis,
+                'pesan'       => 'Tambahkan dulu koleksimu agar AI bisa memberikan rekomendasi!',
+            ]);
+        }
+
+        // Buat prompt yang akan dikirim ke AI
+        $prompt = "Saya memiliki koleksi hobi berikut:\n{$daftarKoleksi}\n\n"
+                . "Berdasarkan koleksi di atas, berikan 3 rekomendasi judul baru "
+                . "(game, buku, atau film) yang mungkin saya sukai. "
+                . "Jelaskan alasan singkat setiap rekomendasi. "
+                . "Jawab dalam Bahasa Indonesia.";
+        // ↑ prompt = instruksi yang kita kirim ke AI
+
+        // Kirim data ke OpenRouter API (free, tidak butuh kartu kredit)
+        // OpenRouter mendukung banyak model AI termasuk yang gratis
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
+            // ↑ API key disimpan di file .env agar tidak terekspos
+            'HTTP-Referer'  => env('APP_URL', 'http://localhost'),
+            'X-Title'       => 'Web Koleksi Hobi',
+            'Content-Type'  => 'application/json',
+        ])->post('https://openrouter.ai/api/v1/chat/completions', [
+            'model'    => 'mistralai/mistral-7b-instruct:free',
+            // ↑ model AI gratis dari Mistral via OpenRouter
+            'messages' => [
+                [
+                    'role'    => 'system',
+                    'content' => 'Kamu adalah asisten yang membantu merekomendasikan game, buku, dan film.',
+                ],
+                [
+                    'role'    => 'user',
+                    'content' => $prompt,
+                ],
+            ],
+        ]);
+        // ↑ Http::post() = kirim request HTTP POST ke API AI
+
+        // Ambil teks rekomendasi dari response API
+        $rekomendasi = null;
+        if ($response->successful()) {
+            // successful() = cek apakah API menjawab dengan status 200
+            $rekomendasi = $response->json('choices.0.message.content');
+            // ↑ ambil teks jawaban AI dari struktur JSON response
+        }
+
+        // Kirim data ke view untuk ditampilkan
+        return view('koleksi.ai', [
+            'rekomendasi' => $rekomendasi,
+            'koleksis'    => $koleksis,
+            'pesan'       => $rekomendasi ? null : 'Gagal menghubungi AI. Coba lagi nanti.',
+        ]);
+        // ↑ kalau $rekomendasi null = API gagal, tampilkan pesan error
     }
 }
