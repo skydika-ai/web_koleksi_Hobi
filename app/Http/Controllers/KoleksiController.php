@@ -164,7 +164,7 @@ class KoleksiController extends Controller
                 . "Jawab dalam Bahasa Indonesia.";
         // ↑ prompt = instruksi yang kita kirim ke AI
 
-        // Kirim data ke OpenRouter API (free, tidak butuh kartu kredit)
+        // Kirim data ke OpenRouter API
         // OpenRouter mendukung banyak model AI termasuk yang gratis
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
