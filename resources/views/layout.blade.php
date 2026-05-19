@@ -32,6 +32,11 @@
             text-decoration: none;
         }
 
+        nav .nav-links {
+            display: flex;
+            align-items: center;
+        }
+
         nav .nav-links a {
             color: #a8b2d8;
             text-decoration: none;
@@ -42,6 +47,38 @@
 
         nav .nav-links a:hover { color: #e94560; }
 
+        /* Link AI warna ungu */
+        nav .nav-links .link-ai {
+            color: #c4b5fd;
+        }
+        nav .nav-links .link-ai:hover { color: #a78bfa; }
+
+        /* Link Admin warna kuning */
+        nav .nav-links .link-admin {
+            color: #fbbf24;
+        }
+        nav .nav-links .link-admin:hover { color: #f59e0b; }
+
+        /* Badge role kecil di sebelah nama user */
+        .badge-role {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.15rem 0.5rem;
+            border-radius: 20px;
+            margin-left: 0.4rem;
+            vertical-align: middle;
+        }
+        .badge-role.admin { background: #fbbf24; color: #1a1a2e; }
+        .badge-role.user  { background: #374151; color: #9ca3af; }
+
+        /* Nama user di navbar */
+        .nav-user {
+            color: #e2e8f0 !important;
+            font-size: 0.85rem !important;
+            cursor: default;
+        }
+        .nav-user:hover { color: #e2e8f0 !important; }
+
         nav .nav-links .btn-logout {
             background: #e94560;
             color: white;
@@ -49,8 +86,10 @@
             border-radius: 6px;
             margin-left: 1.5rem;
             font-size: 0.85rem;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
         }
-
         nav .nav-links .btn-logout:hover { background: #c73652; }
 
         /* ===== CONTAINER ===== */
@@ -125,6 +164,9 @@
 
         .btn-ai        { background: #7c3aed; color: white; }
         .btn-ai:hover  { background: #6d28d9; }
+
+        .btn-admin     { background: #d97706; color: white; }
+        .btn-admin:hover { background: #b45309; }
 
         /* ===== FORM ===== */
         .form-group { margin-bottom: 1rem; }
@@ -203,6 +245,8 @@
         .badge-film    { background: #fce7f3; color: #9d174d; }
         .badge-dimiliki{ background: #d1fae5; color: #065f46; }
         .badge-wishlist{ background: #fef3c7; color: #92400e; }
+        .badge-admin   { background: #fef3c7; color: #92400e; }
+        .badge-user    { background: #f1f5f9; color: #64748b; }
 
         /* ===== BINTANG ===== */
         .stars { color: #f59e0b; letter-spacing: 2px; }
@@ -253,31 +297,57 @@
 
 {{-- ===== NAVBAR ===== --}}
 <nav>
-    <a href="{{ route('koleksi.index') }}" class="brand">KoleksiFlix</a>
+    <a href="{{ route('koleksi.index') }}" class="brand">🎮 KoleksiFlix</a>
+
     <div class="nav-links">
+
+        {{-- Menu utama --}}
         <a href="{{ route('koleksi.index') }}">Koleksiku</a>
         <a href="{{ route('koleksi.create') }}">+ Tambah</a>
-        <a href="{{ route('koleksi.ai') }}" style="color:#c4b5fd">AI Rekomendasi</a>
+        <a href="{{ route('koleksi.ai') }}" class="link-ai">✨ AI Rekomendasi</a>
 
-        {{-- Form logout: cara standar Laravel untuk logout --}}
+        {{-- Menu Admin: hanya muncul kalau role = admin --}}
+        @if(Auth::user()->isAdmin())
+            <a href="{{ route('admin.index') }}" class="link-admin">🛡 Admin Panel</a>
+        @endif
+
+        {{-- Nama user + badge role --}}
+        <span class="nav-user">
+            {{ Auth::user()->name }}
+            @if(Auth::user()->isAdmin())
+                <span class="badge-role admin">Admin</span>
+            @else
+                <span class="badge-role user">User</span>
+            @endif
+        </span>
+
+        {{-- Tombol logout --}}
         <form action="{{ route('logout') }}" method="POST" style="display:inline">
             @csrf
-            <button type="submit" class="btn btn-logout">Logout</button>
+            <button type="submit" class="btn-logout">Logout</button>
         </form>
+
     </div>
 </nav>
 
 {{-- ===== KONTEN UTAMA ===== --}}
 <div class="container">
 
-    {{-- Tampilkan pesan sukses kalau ada (dari with('success') di controller) --}}
+    {{-- Pesan sukses --}}
     @if (session('success'))
         <div class="alert alert-success">
             ✅ {{ session('success') }}
         </div>
     @endif
 
-    {{-- Konten tiap halaman akan mengisi bagian ini --}}
+    {{-- Pesan error --}}
+    @if (session('error'))
+        <div class="alert alert-danger">
+            ⚠️ {{ session('error') }}
+        </div>
+    @endif
+
+    {{-- Konten tiap halaman mengisi bagian ini --}}
     @yield('content')
 
 </div>

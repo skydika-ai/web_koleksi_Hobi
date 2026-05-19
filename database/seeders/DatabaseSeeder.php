@@ -10,18 +10,31 @@ class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
-    $this->call(KoleksiSeeder::class);
-// ↑ perintah untuk jalankan KoleksiSeeder saat seeder dijalankan
+        $this->call(KoleksiSeeder::class);
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        // Akun admin — login dengan kredensial ini pertama kali
+        User::firstOrCreate(
+            ['email' => 'admin@gmail.com'],
+            [
+                'name'     => 'Admin Dika',
+                'password' => bcrypt('admin123'),
+                'role'     => 'admin',
+                // ↑ satu-satunya cara membuat admin adalah lewat seeder ini
+                //   atau ubah langsung di database
+            ]
+        );
+        // firstOrCreate → kalau email sudah ada, skip (tidak duplikat)
+
+        // Akun user biasa untuk testing
+        User::firstOrCreate(
+            ['email' => 'test@example.com'],
+            [
+                'name'     => 'Test User',
+                'password' => bcrypt('password'),
+                'role'     => 'user',
+            ]
+        );
     }
 }
