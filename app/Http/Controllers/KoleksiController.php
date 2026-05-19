@@ -180,45 +180,52 @@ class KoleksiController extends Controller
                 . "untuk masing-masing kategori (game, film, buku) lengkap dengan alasan singkat "
                 . "mengapa cocok untuknya. Jawab dalam Bahasa Indonesia, santai, dan menyenangkan.";
 
-        // 6. Kirim prompt ke OpenRouter API
-        $response = Http::timeout(30)->withHeaders([
-            'Authorization' => 'Bearer ' . env('OPENROUTER_API_KEY'),
-            // API key dibaca dari file .env — jangan pernah ditulis langsung di sini
-            'HTTP-Referer'  => env('APP_URL', 'http://localhost'),
-            'X-Title'       => 'HobiKita',
-            'Content-Type'  => 'application/json',
-        ])->post('https://openrouter.ai/api/v1/chat/completions', [
-            'model'    => 'mistralai/mistral-7b-instruct:free',
-            // Model gratis dari Mistral via OpenRouter
-            'messages' => [
-                [
-                    'role'    => 'system',
-                    'content' => 'Kamu adalah asisten analisis hobi yang ramah dan suportif. '
-                               . 'Berikan analisis dan rekomendasi yang personal dan menyenangkan.',
-                ],
-                [
-                    'role'    => 'user',
-                    'content' => $prompt,
-                ],
-            ],
-        ]);
+        // 6. Kirim prompt ke Groq API (gratis, cepat)
+        $analisis   = null;
+        $pesanError = null;
 
-        // 7. Ambil teks jawaban AI dari response JSON
-        $analisis = null;
-        if ($response->successful()) {
-            // successful() = status HTTP 200
-            $analisis = $response->json('choices.0.message.content');
-            // Struktur response OpenRouter: choices → [0] → message → content
+        try {
+            $response = Http::timeout(30)->withHeaders([
+                'Authorization' => 'Bearer ' . env('GROQ_API_KEY'),
+                'Content-Type'  => 'application/json',
+            ])->post('https://api.groq.com/openai/v1/chat/completions', [
+                'model'    => 'llama-3.1-8b-instant',
+                'messages' => [
+                    [
+                        'role'    => 'system',
+                        'content' => 'Kamu adalah asisten analisis hobi yang ramah dan suportif. '
+                                   . 'Berikan analisis dan rekomendasi yang personal dan menyenangkan.',
+                    ],
+                    [
+                        'role'    => 'user',
+                        'content' => $prompt,
+                    ],
+                ],
+                'max_tokens'  => 1024,
+                'temperature' => 0.7,
+            ]);
+
+            // 7. Ambil teks jawaban dari response Groq
+            // Struktur sama seperti OpenAI: choices → [0] → message → content
+            if ($response->successful()) {
+                $analisis = $response->json('choices.0.message.content');
+            } else {
+                $errMsg     = $response->json('error.message', 'Unknown error');
+                $pesanError = 'Groq error ' . $response->status() . ': ' . $errMsg;
+            }
+
+        } catch (\Exception $e) {
+            $pesanError = 'Koneksi gagal: ' . $e->getMessage();
         }
 
         // 8. Kirim ke view untuk ditampilkan
         return view('koleksi.ai', [
-            'analisis'    => $analisis,
-            'koleksis'    => $koleksis,
-            'totalGame'   => $totalGame,
-            'totalBuku'   => $totalBuku,
-            'totalFilm'   => $totalFilm,
-            'pesan'       => $analisis ? null : 'Gagal menghubungi AI. Periksa API key di .env atau coba lagi nanti.',
+            'analisis'  => $analisis,
+            'koleksis'  => $koleksis,
+            'totalGame' => $totalGame,
+            'totalBuku' => $totalBuku,
+            'totalFilm' => $totalFilm,
+            'pesan'     => $analisis ? null : ($pesanError ?? 'Gagal menghubungi AI. Periksa API key di .env atau coba lagi nanti.'),
         ]);
     }
 }
